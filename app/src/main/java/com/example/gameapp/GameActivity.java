@@ -1,8 +1,17 @@
 package com.example.gameapp;
 
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.widget.Button;
+import android.widget.Toast;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -21,6 +30,7 @@ public class GameActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
         // Initialize buttons
         redButton = findViewById(R.id.RedButton);
@@ -50,27 +60,110 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void displaySequence() {
-        new Thread(() -> {
-            for (int i = 0; i < colorSequence.size(); i++) {
-                String color = colorSequence.get(i);
+        handler.post(new Runnable() {
+            int index = 0;
 
-                // Highlight the button for the current color
-                runOnUiThread(() -> highlightButton(color));
+            @Override
+            public void run() {
+                if (index < colorSequence.size()) {
+                    String color = colorSequence.get(index);
 
-                // Wait for 1 second before resetting the button
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    // Highlight the button
+                    highlightButton(color);
+
+                    // Schedule button reset after 500ms
+                    handler.postDelayed(() -> resetButton(color), 500);
+
+                    // Schedule the next color after 1 second
+                    index++;
+                    handler.postDelayed(this, 1000);
+                } else {
+                    // Sequence display complete, enable user interaction
+                    onSequenceDisplayed();
+                }
+            }
+        });
+    }
+
+    private void onSequenceDisplayed() {
+        // Enable tilt gesture detection
+        enableTiltDetection();
+
+        Toast.makeText(this, "Replicate the sequence by tilting the phone!", Toast.LENGTH_SHORT).show();
+    }
+
+    private void enableTiltDetection() {
+        SensorManager sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        Sensor accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+
+        SensorEventListener tiltListener = new SensorEventListener() {
+            private int userInputIndex = 0;
+
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                float x = event.values[0];
+                float y = event.values[1];
+
+                String direction = null;
+                if (y < -5) {
+                    direction = "RED"; // North
+                } else if (y > 5) {
+                    direction = "GREEN"; // South
+                } else if (x > 5) {
+                    direction = "BLUE"; // East
+                } else if (x < -5) {
+                    direction = "YELLOW"; // West
                 }
 
-                // Reset the button background
-                runOnUiThread(() -> resetButton(color));
+                if (direction != null) {
+                    checkUserInput(direction, userInputIndex++);
+                }
             }
 
-            // Logic for user interaction goes here (after sequence display)
-        }).start();
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                // Not used
+            }
+        };
+
+        // Register the accelerometer listener
+        sensorManager.registerListener(tiltListener, accelerometer, SensorManager.SENSOR_DELAY_UI);
     }
+
+    private void checkUserInput(String direction, int index) {
+        if (index >= colorSequence.size()) {
+            return; // No more input expected
+        }
+
+        if (colorSequence.get(index).equals(direction)) {
+            if (index == colorSequence.size() - 1) {
+                // Sequence matched successfully
+                onSequenceMatched();
+            }
+        } else {
+            // Sequence mismatched
+            onGameOver();
+        }
+    }
+
+    private void onSequenceMatched() {
+        // Reset user input index
+        handler.post(() -> {
+            colorSequence.clear();
+            currentRound++;
+            startGame(); // Start the next round
+        });
+    }
+
+    private void onGameOver() {
+        handler.post(() -> {
+            Intent intent = new Intent(GameActivity.this, GameOverActivity.class);
+            startActivity(intent);
+            finish();
+        });
+    }
+
+
 
     private void highlightButton(String color) {
         switch (color) {
