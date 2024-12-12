@@ -25,6 +25,8 @@ public class GameActivity extends AppCompatActivity {
     private int currentRound = 1; // Tracks the round
     private Button redButton, blueButton, greenButton, yellowButton;
     private Handler handler;
+    private SensorEventListener tiltListener;
+    private int userScore = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,6 +95,10 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void enableTiltDetection() {
+        if (tiltListener != null) {
+            // Avoid re-registering listener
+            return;
+        }
         SensorManager sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         Sensor accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
@@ -105,13 +111,13 @@ public class GameActivity extends AppCompatActivity {
                 float y = event.values[1];
 
                 String direction = null;
-                if (y < -5) {
+                if (y < -3) {
                     direction = "RED"; // North
-                } else if (y > 5) {
+                } else if (y > 3) {
                     direction = "GREEN"; // South
-                } else if (x > 5) {
+                } else if (x > 3) {
                     direction = "BLUE"; // East
-                } else if (x < -5) {
+                } else if (x < -3) {
                     direction = "YELLOW"; // West
                 }
 
@@ -129,9 +135,17 @@ public class GameActivity extends AppCompatActivity {
         // Register the accelerometer listener
         sensorManager.registerListener(tiltListener, accelerometer, SensorManager.SENSOR_DELAY_UI);
     }
+    private void disableTiltDetection() {
+        SensorManager sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (tiltListener != null) {
+            sensorManager.unregisterListener(tiltListener);
+            tiltListener = null; // Clear reference
+        }
+    }
 
     private void checkUserInput(String direction, int index) {
         if (index >= colorSequence.size()) {
+            onGameOver();
             return; // No more input expected
         }
 
@@ -147,8 +161,9 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void onSequenceMatched() {
-        // Reset user input index
+        disableTiltDetection();// Reset user input index
         handler.post(() -> {
+            userScore += 4;
             colorSequence.clear();
             currentRound++;
             startGame(); // Start the next round
@@ -156,8 +171,10 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void onGameOver() {
+        disableTiltDetection();
         handler.post(() -> {
             Intent intent = new Intent(GameActivity.this, GameOverActivity.class);
+            intent.putExtra("SCORE", userScore);
             startActivity(intent);
             finish();
         });
