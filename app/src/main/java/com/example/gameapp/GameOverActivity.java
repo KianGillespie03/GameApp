@@ -26,6 +26,7 @@ public class GameOverActivity extends AppCompatActivity {
         score = intent.getIntExtra("SCORE", 0);
 
         PlayAgainButton = findViewById(R.id.PlayAgainButton);
+        HighScoreButton = findViewById(R.id.HighScoreButton);
         ScoreTextView = findViewById(R.id.ScoretextView);
         ScoreTextView.setText("Your score is " + score);
 
@@ -34,6 +35,15 @@ public class GameOverActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Intent intent2 = new Intent(GameOverActivity.this, GameActivity.class);
                 startActivity(intent2);
+                finish();
+            }
+        });
+
+        HighScoreButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent3 = new Intent(GameOverActivity.this, HighScoresActivity.class);
+                startActivity(intent3);
                 finish();
             }
         });
